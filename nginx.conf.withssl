@@ -1,0 +1,120 @@
+user  nginx;
+worker_processes  auto;
+
+error_log  /var/log/nginx/error.log warn;
+pid        /var/run/nginx.pid;
+
+
+events {
+    worker_connections  1024;
+}
+
+
+http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+
+    log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                      '$status $body_bytes_sent "$http_referer" '
+                      '"$http_user_agent" "$http_x_forwarded_for"';
+
+    access_log  /var/log/nginx/access.log  main;
+
+    sendfile        on;
+    #tcp_nopush     on;
+
+    keepalive_timeout  65;
+
+    #gzip  on;
+
+    #include /etc/nginx/conf.d/*.conf;
+
+    upstream version_a {
+        server 10.253.254.73:443;
+    }
+
+    upstream version_b {
+        server 10.253.254.71:443;
+    }
+
+    split_clients "app${remote_addr}${http_user_agent}${date_gmt}" $appversion {
+        50% version_a;
+        *   version_b;
+    }
+
+    map $cookie_split_test_version $upstream_group {
+        default $appversion;
+        "version_a" "version_a";
+        "version_b" "version_b";
+
+    }
+
+    map $cookie_split_test_version $ck_content {
+       default "split_test_version=$upstream_group;Path=/;Max-Age=518400;";
+       "version_a" "";
+       "version_b" "";
+    }
+
+    server {
+            listen 80;
+            listen [::]:80;
+
+            server_name example.com www.example.com;
+            return 301 https://$server_name$request_uri;
+    }
+
+    server {
+        listen 443 ssl;
+
+        ssl_certificate /etc/letsencrypt/live/example.com/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+
+        include /etc/letsencrypt/options-ssl-nginx.conf;
+
+        # Redirect if request is not https
+        if ($scheme != "https") {
+            return 301 https://$host$request_uri;
+        }
+
+        client_max_body_size 64M;
+
+        # You may add specific rules and folders that have to use the version segmentation.
+        # You can also uso just / to apply to all directories.
+        
+        #location /example.com/ {
+
+            # Sets Cookie header with the content that might be empty or cookie code,
+            # version and Max-Age
+
+            #add_header Set-Cookie $ck_content;
+            #proxy_set_header Host $host;
+
+
+            # If you use more than just $cookie_split_test_version to decide which version
+            # the user should see, you may add them here. However keep in mind this article: If Is Evil
+            # https://www.nginx.com/resources/wiki/start/topics/depth/ifisevil/
+            # if ($upstream_group = "version_a") {
+            #     proxy_pass http://10.253.254.71:443;
+            #     break;
+            # }
+            # if ($upstream_group = "version_b") {
+            #     proxy_pass http://10.253.254.73:443;
+            #     break;
+            # }
+
+            #proxy_pass http://$appversion;
+        #}
+        
+        location / {
+            # Sets Cookie header with the content that might be empty or cookie code,
+            # version and Max-Age
+            add_header Set-Cookie $ck_content;
+            proxy_set_header Host $host;
+
+            # $upstream_group is defined by the existance of its own value in cookie or
+            # by the probabilistic definition of $appversion.
+            proxy_pass http://$upstream_group;
+            break;
+        }
+    }
+}
