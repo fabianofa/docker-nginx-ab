@@ -118,4 +118,5 @@ da solicitação.
 # References:
 
 https://www.freecodecamp.org/news/a-b-testing-with-nginx-in-40-lines-of-code-d4f94397130a/
+
 https://www.nginx.com/resources/wiki/start/topics/depth/ifisevil/
