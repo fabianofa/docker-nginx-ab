@@ -108,11 +108,6 @@ nginx.conf
 ```
 If you use SSL (and you should), make sure you make changes in `.withssl` file. Besides the extra lines defining cert files and redirects when not `https` all the splitting and cookie decision remains the same.
 
-
-O que define a alternância entre os acessos está definido na linha: `"app${remote_addr}${http_user_agent}${date_gmt}"`. Todos
-são variáveis do nginx, mas respectivamente se utiliza a string app, com o IP do usuário, o user-agent do usuário e a data corrente
-da solicitação.
-
 ---
 
 # References:
